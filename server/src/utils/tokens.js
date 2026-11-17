@@ -23,7 +23,7 @@ export const hashToken = (token) => {
 
 export const getCookieOptions = () => ({
   httpOnly: true,
-  secure: true,
+  secure: process.env.NODE_ENV === "production",
   sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   path: "/",
 });

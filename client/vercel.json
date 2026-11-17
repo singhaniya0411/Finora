@@ -1,8 +1,8 @@
 {
   "rewrites": [
-    {
+     {
       "source": "/api/:path*",
-      "destination": "https://finora-production-7ad7e36a.up.railway.app/api/:path*"
+      "destination": "https://finora-jr2i.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",
