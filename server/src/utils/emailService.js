@@ -292,12 +292,13 @@ export const sendFinoraEmail = async ({
   attachments = [],
 }) => {
   try {
-    if (process.env.RESEND_API_KEY) {
+    const apiKey = (process.env.RESEND_API_KEY || "").trim();
+
+    if (apiKey) {
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
-          Authorization: `Bearer                       
-              ${process.env.RESEND_API_KEY}`,
+          Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -307,14 +308,19 @@ export const sendFinoraEmail = async ({
           html: html,
           attachments: attachments.map((a) => ({
             filename: a.filename,
-            content: a.content.toString("base64"),
+            content: Buffer.isBuffer(a.content)
+              ? a.content.toString("base64")
+              : Buffer.from(a.content).toString("base64"),
           })),
         }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to send via Resend");
+      if (!res.ok) {
+        throw new Error(data.message || JSON.stringify(data));
+      }
 
+      console.log("Email sent successfully via Resend! ID:", data.id);
       return { sent: true, messageId: data.id };
     }
   } catch (err) {
