@@ -292,52 +292,34 @@ export const sendFinoraEmail = async ({
   attachments = [],
 }) => {
   try {
-    if (!to || typeof to !== "string") {
-      throw new Error("A valid recipient email address is required.");
-    }
-
-    if (!subject) {
-      throw new Error("Email subject is required.");
-    }
-
-    // Provide a fallback body if the caller doesn't supply one.
-    const emailText =
-      text ||
-      "Hello! There is a new update from your Finora account. Please see the attached report if provided.";
-
-    const emailHtml =
-      html ||
-      createEmailTemplate({
-        title: subject,
-        greeting: "Hello!",
-        message:
-          "There is a new update from your Finora account. Please see the attached report if provided.",
+    if (process.env.RESEND_API_KEY) {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer                       
+              ${process.env.RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: "Finora <onboarding@resend.dev>",
+          to: [to],
+          subject: subject,
+          html: html,
+          attachments: attachments.map((a) => ({
+            filename: a.filename,
+            content: a.content.toString("base64"),
+          })),
+        }),
       });
 
-    const mailTransporter = getTransporter();
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to send via Resend");
 
-    const result = await mailTransporter.sendMail({
-      from: process.env.EMAIL_FROM || `Finora <${process.env.SMTP_USER}>`,
-      to,
-      subject,
-      text: emailText,
-      html: emailHtml,
-      attachments,
-    });
-
-    console.log("Finora email sent successfully:", result.messageId);
-
-    return {
-      sent: true,
-      messageId: result.messageId,
-    };
-  } catch (error) {
-    console.error("Finora email sending failed:", error.message);
-
-    return {
-      sent: false,
-      error: error.message,
-    };
+      return { sent: true, messageId: data.id };
+    }
+  } catch (err) {
+    console.error("Email send error:", err.message);
+    return { sent: false, error: err.message };
   }
 };
 
