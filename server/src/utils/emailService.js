@@ -1,4 +1,3 @@
-
 import nodemailer from "nodemailer";
 
 /**
@@ -74,34 +73,45 @@ const getTransporter = () => {
     return transporter;
   }
 
-  const {
-    SMTP_HOST,
-    SMTP_PORT,
-    SMTP_SECURE,
-    SMTP_USER,
-    SMTP_PASS,
-  } = process.env;
+  const { SMTP_USER, SMTP_PASS, SMTP_HOST, SMTP_PORT, SMTP_SECURE } =
+    process.env;
 
-  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
+  if (!SMTP_USER || !SMTP_PASS) {
     throw new Error(
-      "Email configuration missing. Check SMTP_HOST, SMTP_USER and SMTP_PASS in server/.env."
+      "Email configuration missing. Check SMTP_USER and SMTP_PASS.",
     );
   }
 
-  const port = Number(SMTP_PORT || 465);
+  const isGmail = !SMTP_HOST || SMTP_HOST.includes("gmail");
 
-  transporter = nodemailer.createTransport({
-    host: SMTP_HOST,
-    port,
-    secure:
-      SMTP_SECURE !== undefined
-        ? SMTP_SECURE === "true"
-        : port === 465,
-    auth: {
-      user: SMTP_USER,
-      pass: SMTP_PASS,
-    },
-  });
+  transporter = nodemailer.createTransport(
+    isGmail
+      ? {
+          service: "gmail",
+          auth: {
+            user: SMTP_USER,
+            pass: SMTP_PASS,
+          },
+          connectionTimeout: 10000, // 10s max
+          greetingTimeout: 10000,
+          socketTimeout: 15000,
+        }
+      : {
+          host: SMTP_HOST,
+          port: Number(SMTP_PORT || 587),
+          secure: SMTP_SECURE === "true",
+          auth: {
+            user: SMTP_USER,
+            pass: SMTP_PASS,
+          },
+          tls: {
+            rejectUnauthorized: false,
+          },
+          connectionTimeout: 10000,
+          greetingTimeout: 10000,
+          socketTimeout: 15000,
+        },
+  );
 
   return transporter;
 };
@@ -142,7 +152,7 @@ const createEmailTemplate = ({
                   ${escapeHtml(value)}
                 </strong>
               </div>
-            `
+            `,
           )
           .join("")}
       </div>
@@ -307,9 +317,7 @@ export const sendFinoraEmail = async ({
     const mailTransporter = getTransporter();
 
     const result = await mailTransporter.sendMail({
-      from:
-        process.env.EMAIL_FROM ||
-        `Finora <${process.env.SMTP_USER}>`,
+      from: process.env.EMAIL_FROM || `Finora <${process.env.SMTP_USER}>`,
       to,
       subject,
       text: emailText,
@@ -344,11 +352,7 @@ export const sendFinoraEmail = async ({
  * @param {Object} expense - Expense document or expense data
  * @param {string} action - created, updated or deleted
  */
-export const sendExpenseActivityEmail = async (
-  user,
-  expense,
-  action
-) => {
+export const sendExpenseActivityEmail = async (user, expense, action) => {
   try {
     if (!user?.email) {
       return {
@@ -378,8 +382,7 @@ export const sendExpenseActivityEmail = async (
 
     const normalizedAction = String(action).toLowerCase();
 
-    const title =
-      actionLabels[normalizedAction] || "Expense Activity";
+    const title = actionLabels[normalizedAction] || "Expense Activity";
 
     const message =
       actionMessages[normalizedAction] ||
@@ -402,9 +405,7 @@ export const sendExpenseActivityEmail = async (
       },
       {
         label: "Date",
-        value: formatDate(
-          expense.date || expense.createdAt || new Date()
-        ),
+        value: formatDate(expense.date || expense.createdAt || new Date()),
       },
     ];
 
@@ -441,10 +442,7 @@ export const sendExpenseActivityEmail = async (
       text,
     });
   } catch (error) {
-    console.error(
-      "Expense activity email error:",
-      error.message
-    );
+    console.error("Expense activity email error:", error.message);
 
     return {
       sent: false,
@@ -477,7 +475,7 @@ export const sendBudgetNotificationEmail = async (
     budget,
     spent,
     remaining,
-  } = {}
+  } = {},
 ) => {
   try {
     if (!user?.email) {
@@ -534,10 +532,7 @@ export const sendBudgetNotificationEmail = async (
       text,
     });
   } catch (error) {
-    console.error(
-      "Budget notification email error:",
-      error.message
-    );
+    console.error("Budget notification email error:", error.message);
 
     return {
       sent: false,

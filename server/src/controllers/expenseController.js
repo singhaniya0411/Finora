@@ -154,7 +154,7 @@ export const getExpenseSummary = async (req, res, next) => {
       23,
       59,
       59,
-      999
+      999,
     );
 
     // Period match filter
@@ -172,62 +172,63 @@ export const getExpenseSummary = async (req, res, next) => {
     }
 
     // Run parallel aggregation
-    const [overallStats, thisMonthStats, periodStats, categoryStats] = await Promise.all([
-      // Overall Total & Count
-      Expense.aggregate([
-        { $match: { user: userId } },
-        {
-          $group: {
-            _id: null,
-            totalSpent: { $sum: "$amount" },
-            count: { $sum: 1 },
+    const [overallStats, thisMonthStats, periodStats, categoryStats] =
+      await Promise.all([
+        // Overall Total & Count
+        Expense.aggregate([
+          { $match: { user: userId } },
+          {
+            $group: {
+              _id: null,
+              totalSpent: { $sum: "$amount" },
+              count: { $sum: 1 },
+            },
           },
-        },
-      ]),
+        ]),
 
-      // This Month's Total & Count
-      Expense.aggregate([
-        {
-          $match: {
-            user: userId,
-            date: { $gte: startOfMonth, $lte: endOfMonth },
+        // This Month's Total & Count
+        Expense.aggregate([
+          {
+            $match: {
+              user: userId,
+              date: { $gte: startOfMonth, $lte: endOfMonth },
+            },
           },
-        },
-        {
-          $group: {
-            _id: null,
-            totalSpent: { $sum: "$amount" },
-            count: { $sum: 1 },
+          {
+            $group: {
+              _id: null,
+              totalSpent: { $sum: "$amount" },
+              count: { $sum: 1 },
+            },
           },
-        },
-      ]),
+        ]),
 
-      // Selected Period Total, Count, & Average
-      Expense.aggregate([
-        { $match: periodMatch },
-        {
-          $group: {
-            _id: null,
-            totalSpent: { $sum: "$amount" },
-            count: { $sum: 1 },
-            avgAmount: { $avg: "$amount" },
+        // Selected Period Total, Count, & Average
+        Expense.aggregate([
+          { $match: periodMatch },
+          {
+            $group: {
+              _id: null,
+              totalSpent: { $sum: "$amount" },
+              count: { $sum: 1 },
+              avgAmount: { $avg: "$amount" },
+            },
           },
-        },
-      ]),
+        ]),
 
-      // Spending by Category in Selected Period
-      Expense.aggregate([
-        { $match: periodMatch },
-        {
-          $group: {
-            _id: "$category",
-            total: { $sum: "$amount" },
-            count: { $sum: 1 },
+        // Spending by Category in Selected Period
+        Expense.aggregate([
+          { $match: periodMatch },
+          {
+            $group: {
+              _id: "$category",
+              total: { $sum: "$amount" },
+              count: { $sum: 1 },
+            },
           },
-        },
-        { $sort: { total: -1 } },
-      ]),
-    ]);
+          { $sort: { total: -1 } },
+        ]),
+      ]);
 
     const overallTotalSpent = overallStats[0]?.totalSpent || 0;
     const overallTotalCount = overallStats[0]?.count || 0;
@@ -330,18 +331,14 @@ export const createExpense = async (req, res, next) => {
 
     const expense = await Expense.create(expenseData);
     // Send notification without interrupting successful expense creation.
-const emailResult = await sendExpenseActivityEmail(
-  req.user,
-  expense,
-  "created"
-);
 
-if (!emailResult.sent) {
-  console.error(
-    "Expense notification was not sent:",
-    emailResult.error || emailResult.reason
-  );
-}
+    sendExpenseActivityEmail(req.user, expense, "created").catch((err) => {
+      console.error(
+        "Expense email failed in background: ",
+        err?.message || err,
+      );
+    });
+
     return res.status(201).json({
       success: true,
       message: "Expense created successfully.",
@@ -381,7 +378,7 @@ export const updateExpense = async (req, res, next) => {
         message: "Expense not found.",
       });
     }
-const previousExpense = expense.toObject();
+    const previousExpense = expense.toObject();
     // Apply allowed updates
     const updates = validation.data;
     if (updates.title !== undefined) expense.title = updates.title;
@@ -393,12 +390,12 @@ const previousExpense = expense.toObject();
     if (updates.notes !== undefined) expense.notes = updates.notes;
 
     await expense.save();
-void sendExpenseActivityEmail({
-  user: req.user,
-  action: "updated",
-  expense: expense.toObject(),
-  previousExpense,
-});
+    void sendExpenseActivityEmail({
+      user: req.user,
+      action: "updated",
+      expense: expense.toObject(),
+      previousExpense,
+    });
     return res.status(200).json({
       success: true,
       message: "Expense updated successfully.",
@@ -430,11 +427,11 @@ export const deleteExpense = async (req, res, next) => {
         message: "Expense not found.",
       });
     }
-void sendExpenseActivityEmail({
-  user: req.user,
-  action: "deleted",
-  previousExpense: expense.toObject(),
-});
+    void sendExpenseActivityEmail({
+      user: req.user,
+      action: "deleted",
+      previousExpense: expense.toObject(),
+    });
     return res.status(200).json({
       success: true,
       message: "Expense deleted successfully.",
@@ -554,10 +551,7 @@ export const getExpenseAnalytics = async (req, res, next) => {
       ]),
 
       // 4. Top Expenses in Year (for Visual Highlight & Leaderboard)
-      Expense.find(yearFilter)
-        .sort({ amount: -1, date: -1 })
-        .limit(5)
-        .lean(),
+      Expense.find(yearFilter).sort({ amount: -1, date: -1 }).limit(5).lean(),
 
       // 5. Recent Transactions
       Expense.find({ user: userObjectId })
