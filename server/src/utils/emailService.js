@@ -287,11 +287,46 @@ const createEmailTemplate = ({
 export const sendFinoraEmail = async ({
   to,
   subject,
+  heading,
+  intro,
+  details = [],
   html,
   text,
   attachments = [],
 }) => {
   try {
+    if (!to || typeof to !== "string") {
+      throw new Error("A valid recipient email address is          required.");
+    }
+
+    if (!subject) {
+      throw new Error("Email subject is required.");
+    }
+
+    // Build the HTML template and fallback text
+    const emailHtml =
+      html ||
+      createEmailTemplate({
+        title: heading || subject,
+        greeting: intro || "Hello!",
+        message:
+          "Your requested Finora PDF statement is             attached to this email.",
+        details,
+        footerMessage: "Thank you for using Finora.",
+      });
+
+    const emailText =
+      text ||
+      (intro
+        ? `${intro}\n\n${details
+            .map(
+              (d) => `${d.label}: 
+            ${d.value}`,
+            )
+            .join("\n")}`
+        : "Hello! Your requested Finora PDF statement is             attached");
+
+    // 1. Send via Resend HTTP API (works seamlessly on          Render Free Tier)
     const apiKey = (process.env.RESEND_API_KEY || "").trim();
 
     if (apiKey) {
@@ -305,7 +340,8 @@ export const sendFinoraEmail = async ({
           from: "Finora <onboarding@resend.dev>",
           to: [to],
           subject: subject,
-          html: html,
+          html: emailHtml,
+          text: emailText,
           attachments: attachments.map((a) => ({
             filename: a.filename,
             content: Buffer.isBuffer(a.content)
@@ -320,12 +356,42 @@ export const sendFinoraEmail = async ({
         throw new Error(data.message || JSON.stringify(data));
       }
 
-      console.log("Email sent successfully via Resend! ID:", data.id);
-      return { sent: true, messageId: data.id };
+      console.log(
+        "Email sent successfully via Resend!             ID:",
+        data.id,
+      );
+      return {
+        sent: true,
+        messageId: data.id,
+      };
     }
-  } catch (err) {
-    console.error("Email send error:", err.message);
-    return { sent: false, error: err.message };
+
+    // 2. Fallback to Nodemailer SMTP (for local        development)
+    const mailTransporter = getTransporter();
+
+    const result = await mailTransporter.sendMail({
+      from:
+        process.env.EMAIL_FROM ||
+        `Finora            
+          <${process.env.SMTP_USER}>`,
+      to,
+      subject,
+      text: emailText,
+      html: emailHtml,
+      attachments,
+    });
+
+    return {
+      sent: true,
+      messageId: result.messageId,
+    };
+  } catch (error) {
+    console.error("Email send error:", error.message);
+
+    return {
+      sent: false,
+      error: error.message,
+    };
   }
 };
 
