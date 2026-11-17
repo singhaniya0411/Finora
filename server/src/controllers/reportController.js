@@ -113,7 +113,8 @@ export const emailPdfReport = async (req, res, next) => {
     if (!result.sent) {
       return res.status(502).json({
         success: false,
-        message: "The report was generated, but email delivery failed. Please try again.",
+        message:
+          "Email sending is restricted on Render&apos free tier. Please use the 'Download PDF' button above to get your report instantly!",
       });
     }
 
@@ -125,4 +126,3 @@ export const emailPdfReport = async (req, res, next) => {
     return handleReportError(error, res, next);
   }
 };
-
