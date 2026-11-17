@@ -1,4 +1,3 @@
-
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 
@@ -6,7 +5,7 @@ export const generateAccessToken = (userId) => {
   return jwt.sign(
     { userId: userId.toString() },
     process.env.ACCESS_TOKEN_SECRET,
-    { expiresIn: "15m" }
+    { expiresIn: "15m" },
   );
 };
 
@@ -14,21 +13,18 @@ export const generateRefreshToken = (userId) => {
   return jwt.sign(
     { userId: userId.toString() },
     process.env.REFRESH_TOKEN_SECRET,
-    { expiresIn: "7d" }
+    { expiresIn: "7d" },
   );
 };
 
 export const hashToken = (token) => {
-  return crypto
-    .createHash("sha256")
-    .update(token)
-    .digest("hex");
+  return crypto.createHash("sha256").update(token).digest("hex");
 };
 
 export const getCookieOptions = () => ({
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "lax",
+  secure: true,
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   path: "/",
 });
 

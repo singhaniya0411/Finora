@@ -1,4 +1,3 @@
-
 import "dotenv/config";
 import reportRoutes from "./routes/reportRoutes.js";
 import express from "express";
@@ -11,10 +10,7 @@ import authRoutes from "./routes/authRoutes.js";
 import expenseRoutes from "./routes/expenseRoutes.js";
 import budgetRoutes from "./routes/budgetRoutes.js";
 
-import {
-  notFound,
-  errorHandler,
-} from "./middleware/errorMiddleware.js";
+import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -31,7 +27,7 @@ if (
 }
 
 const allowedOrigins = [
-  CLIENT_URL,
+  CLIENT_URL?.replace(/\/$/, ""),
   "http://localhost:5173",
   "http://127.0.0.1:5173",
 ].filter(Boolean);
@@ -39,20 +35,25 @@ const allowedOrigins = [
 // Security headers
 app.use(helmet());
 // CORS
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (e.g. mobile apps, curl, Postman)
-      if (!origin || allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      return callback(new Error(`Origin ${origin} not allowed by CORS`));
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "X-CSRF-Token", "Authorization"],
-  })
-);
+app.use(                                                 
+      cors({                                                 
+        origin: (origin, callback) => {                      
+          // Allow requests with no origin, matched          
+          CLIENT_URL, or any Vercel deployment               
+          if (!origin || allowedOrigins.includes(origin) ||  
+          origin.endsWith(".vercel.app")) {                  
+            return callback(null, true);                     
+          }                                                  
+          return callback(new Error(`Origin ${origin} not    
+          allowed by CORS`));                                
+        },                                                   
+        credentials: true,                                   
+        methods: ["GET", "POST", "PUT", "PATCH", "DELETE",   
+        "OPTIONS"],                                          
+        allowedHeaders: ["Content-Type", "X-CSRF-Token",     
+        "Authorization"],                                    
+      })                                                     
+    ); 
 
 // Request parsing
 app.use(express.json({ limit: "10kb" }));
