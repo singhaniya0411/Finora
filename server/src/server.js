@@ -27,7 +27,7 @@ if (
 }
 
 const allowedOrigins = [
-  CLIENT_URL?.replace(/\/$/, ""),
+  CLIENT_URL ? CLIENT_URL.replace(/\/$/, "") : null,
   "http://localhost:5173",
   "http://127.0.0.1:5173",
 ].filter(Boolean);
@@ -35,25 +35,23 @@ const allowedOrigins = [
 // Security headers
 app.use(helmet());
 // CORS
-app.use(                                                 
-      cors({                                                 
-        origin: (origin, callback) => {                      
-          // Allow requests with no origin, matched          
-          CLIENT_URL, or any Vercel deployment               
-          if (!origin || allowedOrigins.includes(origin) ||  
-          origin.endsWith(".vercel.app")) {                  
-            return callback(null, true);                     
-          }                                                  
-          return callback(new Error(`Origin ${origin} not    
-          allowed by CORS`));                                
-        },                                                   
-        credentials: true,                                   
-        methods: ["GET", "POST", "PUT", "PATCH", "DELETE",   
-        "OPTIONS"],                                          
-        allowedHeaders: ["Content-Type", "X-CSRF-Token",     
-        "Authorization"],                                    
-      })                                                     
-    ); 
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin) || origin.endsWith(".vercel.app")) {
+        return callback(null, true);
+      }
+      return callback(
+        new Error(`Origin ${origin} not    
+          allowed by CORS`),
+      );
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "X-CSRF-Token", "Authorization"],
+  }),
+);
 
 // Request parsing
 app.use(express.json({ limit: "10kb" }));
